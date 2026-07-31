@@ -1,4 +1,4 @@
-# osto-auth
+# Osto CLI Login
 
 A CLI authentication system written in Go. It supports user registration, password-based login, optional TOTP-based two-factor authentication, and session management. Everything runs in Docker with a PostgreSQL backend.
 
@@ -7,7 +7,7 @@ A CLI authentication system written in Go. It supports user registration, passwo
 - User registration with bcrypt password hashing (cost 12)
 - Login with optional TOTP 2FA (RFC 6238, Google Authenticator compatible)
 - Account lockout after N failed attempts (default: 5 attempts, 15 minute lockout)
-- Session tokens stored in the database with configurable expiry (default: 30 minutes)
+- Database-backed session management with configurable session expiry (default: 30 minutes)
 - Tab completion and command history in the CLI
 - Data persists across container restarts via a named Docker volume
 
@@ -16,8 +16,8 @@ A CLI authentication system written in Go. It supports user registration, passwo
 **Prerequisites**: Docker and Docker Compose.
 
 ```bash
-git clone <repo-url>
-cd osto-auth
+git clone https://github.com/dipak0000812/osto-cli-login.git
+cd osto-cli-login
 docker compose up --build
 ```
 
@@ -76,7 +76,7 @@ internal/cli/cli.go     Command routing and user interaction
 migrations/001_init.sql users and sessions schema
 ```
 
-`main.go` constructs the repositories and passes them into the CLI. There is no global state. The CLI holds the active session token in memory for the duration of the process.
+`main.go` initializes the database connection, constructs the application components, and starts the CLI. Dependencies are injected explicitly; packages do not rely on global state.
 
 ## Engineering Decisions
 
@@ -86,17 +86,17 @@ migrations/001_init.sql users and sessions schema
 
 **Timing attack mitigation**: When a username does not exist, the code still calls `bcrypt.CompareHashAndPassword` against a pre-computed dummy hash. This keeps the response time consistent and prevents enumerating valid usernames by measuring response time differences.
 
-**Database sessions over JWTs**: Session tokens are UUID v4 strings stored in PostgreSQL. Logout immediately deletes the row. JWTs cannot be revoked without additional server-side state; database sessions make revocation a single DELETE.
+**Database sessions over JWTs**: Session tokens are UUID v4 strings stored in PostgreSQL. Logging out immediately invalidates the session by deleting its database record. JWTs cannot be revoked without additional server-side state; database sessions make revocation a single DELETE.
 
 **TIMESTAMPTZ**: All timestamp columns use `TIMESTAMPTZ`. Using `TIMESTAMP` without timezone means lockout and expiry comparisons depend on the server and database being configured to the same timezone. `TIMESTAMPTZ` stores UTC, so the arithmetic is correct regardless of where the process runs.
 
 **TOCTOU-safe registration**: Registration uses a single `INSERT` and catches the unique-constraint error (`pq` error code `23505`) rather than doing a SELECT-then-INSERT. A check-before-insert under concurrent requests can allow duplicate usernames in the window between the read and the write.
 
-**PostgreSQL over SQLite**: The assignment required Docker. Running Postgres as a compose service also exercises foreign keys, `gen_random_uuid()`, and `ON DELETE CASCADE`. SQLite would require bundling the C library or using a pure-Go driver with different behavior.
+**PostgreSQL over SQLite**: PostgreSQL was chosen because the assignment requires a containerized database and it provides stronger transactional guarantees and concurrency semantics than SQLite while keeping the deployment straightforward with Docker Compose.
 
 **Non-root container**: The Dockerfile creates a system user (`appuser`, uid 10001) and runs the binary as that user. A compromised process running as root in a container has a larger attack surface.
 
-**Static binary**: Built with `CGO_ENABLED=0` and `-ldflags="-w -s"`. No libc dependency, no debug symbols. The final image is Alpine with only `ca-certificates` and `tzdata` added.
+**Static binary**: Built with `CGO_ENABLED=0` and `-ldflags="-w -s"`. Producing a statically linked binary simplifies deployment and reduces the runtime image size.
 
 ## Security Notes
 
@@ -113,7 +113,7 @@ go test -race ./...
 go vet ./...
 ```
 
-Tests cover registration, login, lockout, and session expiry. The race detector passes. `cli.go` and `db.go` are not unit-tested because they require a live process or database connection; the logic being tested lives in the other packages.
+The `auth`, `session`, and `totp` packages are covered by unit tests. The project passes the Go race detector (`go test -race ./...`). The `cli` and `db` packages contain orchestration code and integration points; their logic is exercised through the tested packages.
 
 ## Limitations
 
@@ -121,7 +121,3 @@ Tests cover registration, login, lockout, and session expiry. The race detector 
 - There is no background cleanup for expired sessions. They accumulate until the user logs out. A `DELETE FROM sessions WHERE expires_at < NOW()` run periodically would handle this.
 - The TOTP secret is stored in plaintext in the database. Encrypting it at rest would require a key management approach that is out of scope for this assignment.
 - Account lockout resets on successful login. There is no admin interface to manually unlock an account.
-
-## License
-
-MIT
