@@ -1,0 +1,40 @@
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: osto-postgres
+    environment:
+      POSTGRES_USER: osto
+      POSTGRES_PASSWORD: ostopassword
+      POSTGRES_DB: ostodb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/001_init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U osto -d ostodb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: osto-auth
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: osto
+      DB_PASSWORD: ostopassword
+      DB_NAME: ostodb
+      SESSION_TIMEOUT_MINUTES: 30
+      MAX_FAILED_ATTEMPTS: 5
+      LOCKOUT_MINUTES: 15
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data:
