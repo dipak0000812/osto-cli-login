@@ -17,9 +17,9 @@ func main() {
     }
     defer database.Close()
 
-    authRepo    := auth.NewRepository(database)
+    authRepo := auth.NewRepository(database)
     sessionRepo := session.NewRepository(database)
-    totpSvc     := totp.NewService()
+    totpSvc := totp.NewService()
 
     app := cli.New(authRepo, sessionRepo, totpSvc)
 

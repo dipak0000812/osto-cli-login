@@ -126,32 +126,32 @@ func (c *CLI) cmdRegister(ctx context.Context) {
     fmt.Print("Enter username: ")
     username := c.readLine()
     if username == "" {
-        fmt.Println("❌ Username cannot be empty.")
+        fmt.Println("Username cannot be empty.")
         return
     }
 
     password := c.readPassword("Enter password: ")
     if len(password) < 8 {
-        fmt.Println("❌ Password must be at least 8 characters.")
+        fmt.Println("Password must be at least 8 characters.")
         return
     }
 
     confirm := c.readPassword("Confirm password: ")
     if password != confirm {
-        fmt.Println("❌ Passwords do not match.")
+        fmt.Println("Passwords do not match.")
         return
     }
 
     if err := c.authRepo.Register(ctx, username, password); err != nil {
         if err == auth.ErrUserExists {
-            fmt.Println("❌ Username already taken. Please choose another.")
+            fmt.Println("Username already taken.")
             return
         }
-        fmt.Printf("❌ Registration failed: %v\n", err)
+        fmt.Printf("Registration failed: %v\n", err)
         return
     }
 
-    fmt.Printf("✅ Account created successfully. Welcome, %s!\n", username)
+    fmt.Printf("Account created. Welcome, %s.\n", username)
 }
 
 func (c *CLI) cmdLogin(ctx context.Context) {
@@ -162,7 +162,7 @@ func (c *CLI) cmdLogin(ctx context.Context) {
 
     user, err := c.authRepo.Login(ctx, username, password)
     if err != nil {
-        fmt.Printf("❌ %v\n", err)
+        fmt.Printf("%v\n", err)
         return
     }
 
@@ -170,14 +170,14 @@ func (c *CLI) cmdLogin(ctx context.Context) {
         fmt.Print("Enter 2FA code: ")
         code := c.readLine()
         if !c.totpSvc.Validate(user.TOTPSecret.String, code) {
-            fmt.Println("❌ Invalid 2FA code.")
+            fmt.Println("Invalid 2FA code.")
             return
         }
     }
 
     sess, err := c.sessionRepo.Create(ctx, user.ID)
     if err != nil {
-        fmt.Printf("❌ Failed to create session: %v\n", err)
+        fmt.Printf("Failed to create session: %v\n", err)
         return
     }
 
@@ -185,7 +185,7 @@ func (c *CLI) cmdLogin(ctx context.Context) {
     c.currentUserID = user.ID
     c.rl.SetPrompt(fmt.Sprintf("osto [%s]> ", username))
 
-    fmt.Printf("\n✅ Welcome back, %s!\n", user.Username)
+    fmt.Printf("\nWelcome back, %s.\n", user.Username)
     fmt.Printf("   Registered: %s\n", user.CreatedAt.Format("02 Jan 2006"))
     fmt.Printf("   2FA Status: %s\n", boolToStatus(user.TOTPEnabled))
     fmt.Printf("   Session expires: %s\n", sess.ExpiresAt.Format("15:04:05"))
@@ -198,7 +198,7 @@ func (c *CLI) cmdLogin(ctx context.Context) {
 func (c *CLI) cmdWhoami(ctx context.Context) {
     sess, err := c.sessionRepo.Get(ctx, c.currentToken)
     if err != nil {
-        fmt.Println("❌ Session expired. Please login again.")
+        fmt.Println("Session expired. Please login again.")
         c.currentToken = ""
         c.currentUserID = ""
         c.rl.SetPrompt("osto> ")
@@ -207,7 +207,7 @@ func (c *CLI) cmdWhoami(ctx context.Context) {
 
     user, err := c.authRepo.GetByID(ctx, c.currentUserID)
     if err != nil {
-        fmt.Printf("❌ Failed to get user details: %v\n", err)
+        fmt.Printf("Failed to get user details: %v\n", err)
         return
     }
 
@@ -225,49 +225,49 @@ func (c *CLI) cmdWhoami(ctx context.Context) {
 func (c *CLI) cmdEnable2FA(ctx context.Context) {
     user, err := c.authRepo.GetByID(ctx, c.currentUserID)
     if err != nil {
-        fmt.Printf("❌ %v\n", err)
+        fmt.Printf("%v\n", err)
         return
     }
 
     if user.TOTPEnabled {
-        fmt.Println("❌ 2FA is already enabled.")
+        fmt.Println("2FA is already enabled.")
         return
     }
 
     secret, qrURL, err := c.totpSvc.Generate(user.Username)
     if err != nil {
-        fmt.Printf("❌ Failed to generate 2FA secret: %v\n", err)
+        fmt.Printf("Failed to generate 2FA secret: %v\n", err)
         return
     }
 
-    fmt.Println("\n📱 Scan this URL in Google Authenticator or Authy:")
+    fmt.Println("\nScan this URL in Google Authenticator or Authy:")
     fmt.Println(qrURL)
     fmt.Printf("\nOr enter this secret manually: %s\n\n", secret)
     fmt.Print("Enter the 6-digit code from your app to confirm: ")
     code := c.readLine()
 
     if !c.totpSvc.Validate(secret, code) {
-        fmt.Println("❌ Invalid code. 2FA not enabled.")
+        fmt.Println("Invalid code. 2FA not enabled.")
         return
     }
 
     if err := c.authRepo.UpdateTOTP(ctx, c.currentUserID, secret, true); err != nil {
-        fmt.Printf("❌ Failed to enable 2FA: %v\n", err)
+        fmt.Printf("Failed to enable 2FA: %v\n", err)
         return
     }
 
-    fmt.Println("✅ 2FA enabled successfully. Your account is now more secure.")
+    fmt.Println("2FA enabled. Your account now requires a code on login.")
 }
 
 func (c *CLI) cmdDisable2FA(ctx context.Context) {
     user, err := c.authRepo.GetByID(ctx, c.currentUserID)
     if err != nil {
-        fmt.Printf("❌ %v\n", err)
+        fmt.Printf("%v\n", err)
         return
     }
 
     if !user.TOTPEnabled {
-        fmt.Println("❌ 2FA is not enabled.")
+        fmt.Println("2FA is not enabled.")
         return
     }
 
@@ -275,16 +275,16 @@ func (c *CLI) cmdDisable2FA(ctx context.Context) {
     code := c.readLine()
 
     if !c.totpSvc.Validate(user.TOTPSecret.String, code) {
-        fmt.Println("❌ Invalid code. 2FA not disabled.")
+        fmt.Println("Invalid code. 2FA not disabled.")
         return
     }
 
     if err := c.authRepo.UpdateTOTP(ctx, c.currentUserID, "", false); err != nil {
-        fmt.Printf("❌ Failed to disable 2FA: %v\n", err)
+        fmt.Printf("Failed to disable 2FA: %v\n", err)
         return
     }
 
-    fmt.Println("✅ 2FA disabled successfully.")
+    fmt.Println("2FA disabled.")
 }
 
 func (c *CLI) cmdLogout(ctx context.Context) {
@@ -292,7 +292,7 @@ func (c *CLI) cmdLogout(ctx context.Context) {
     c.currentToken = ""
     c.currentUserID = ""
     c.rl.SetPrompt("osto> ")
-    fmt.Println("✅ Logged out successfully.")
+    fmt.Println("Logged out.")
 }
 
 func (c *CLI) readLine() string {
@@ -340,7 +340,7 @@ func (c *CLI) printAuthHelp() {
 
 func boolToStatus(b bool) string {
     if b {
-        return "✅ Enabled"
+        return "enabled"
     }
-    return "❌ Disabled"
+    return "disabled"
 }

@@ -14,13 +14,10 @@ import (
 )
 
 var (
-    ErrUserExists       = errors.New("username already exists")
-    ErrUserNotFound     = errors.New("user not found")
-    ErrWrongPassword    = errors.New("incorrect password")
-    ErrAccountLocked    = errors.New("account is temporarily locked")
-    ErrInvalid2FA       = errors.New("invalid 2FA code")
-    ErrTOTPNotEnabled   = errors.New("2FA is not enabled")
-    ErrTOTPAlreadyOn    = errors.New("2FA is already enabled")
+    ErrUserExists    = errors.New("username already exists")
+    ErrUserNotFound  = errors.New("user not found")
+    ErrWrongPassword = errors.New("incorrect password")
+    ErrAccountLocked = errors.New("account is temporarily locked")
 )
 
 type User struct {
