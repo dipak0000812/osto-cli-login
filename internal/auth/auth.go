@@ -43,7 +43,6 @@ func NewRepository(db *sql.DB) *Repository {
     return &Repository{db: db}
 }
 
-// Pre-computed dummy hash to prevent timing attacks on non-existent usernames
 var dummyHash = "$2a$12$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
 
 func (r *Repository) Register(ctx context.Context, username, password string) error {
@@ -78,18 +77,15 @@ func (r *Repository) Login(ctx context.Context, username, password string) (*Use
 
     user, err := r.GetByUsername(ctx, username)
     if err != nil {
-        // Run dummy hash check to ensure constant time execution and prevent username enumeration
         _ = bcrypt.CompareHashAndPassword([]byte(dummyHash), []byte(password))
         return nil, ErrWrongPassword
     }
 
-    // check lockout
     if user.LockedUntil.Valid && user.LockedUntil.Time.After(time.Now()) {
         remaining := time.Until(user.LockedUntil.Time).Minutes()
         return nil, fmt.Errorf("%w: try again in %.0f minutes", ErrAccountLocked, remaining)
     }
 
-    // verify password
     if err := bcrypt.CompareHashAndPassword(
         []byte(user.PasswordHash), []byte(password),
     ); err != nil {
@@ -99,7 +95,6 @@ func (r *Repository) Login(ctx context.Context, username, password string) (*Use
         return nil, ErrWrongPassword
     }
 
-    // reset failed attempts and update last login
     if _, err := r.db.ExecContext(ctx,
         "UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = $1",
         user.ID,

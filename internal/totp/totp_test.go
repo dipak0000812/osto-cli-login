@@ -22,7 +22,6 @@ func TestTOTPGenerateAndValidate(t *testing.T) {
         t.Error("QR URL is empty")
     }
 
-    // Generate code using standard library to test validation
     code, err := totp.GenerateCode(secret, time.Now().UTC())
     if err != nil {
         t.Fatalf("Failed to generate code for validation: %v", err)

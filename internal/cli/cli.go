@@ -17,7 +17,6 @@ type CLI struct {
     totpSvc     *totp.Service
     rl          *readline.Instance
 
-    // current session state
     currentToken  string
     currentUserID string
 }
@@ -167,7 +166,6 @@ func (c *CLI) cmdLogin(ctx context.Context) {
         return
     }
 
-    // check 2FA
     if user.TOTPEnabled && user.TOTPSecret.Valid {
         fmt.Print("Enter 2FA code: ")
         code := c.readLine()
@@ -177,7 +175,6 @@ func (c *CLI) cmdLogin(ctx context.Context) {
         }
     }
 
-    // create session
     sess, err := c.sessionRepo.Create(ctx, user.ID)
     if err != nil {
         fmt.Printf("❌ Failed to create session: %v\n", err)
@@ -199,7 +196,6 @@ func (c *CLI) cmdLogin(ctx context.Context) {
 }
 
 func (c *CLI) cmdWhoami(ctx context.Context) {
-    // verify session still valid
     sess, err := c.sessionRepo.Get(ctx, c.currentToken)
     if err != nil {
         fmt.Println("❌ Session expired. Please login again.")

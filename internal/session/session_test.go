@@ -23,7 +23,6 @@ func TestSessionLifecycle(t *testing.T) {
 
     ctx := context.Background()
 
-    // Create a temporary user first for referencing foreign key
     var userID string
     err = db.QueryRowContext(ctx,
         "INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id",
@@ -38,7 +37,6 @@ func TestSessionLifecycle(t *testing.T) {
 
     repo := NewRepository(db)
 
-    // 1. Create session
     sess, err := repo.Create(ctx, userID)
     if err != nil {
         t.Fatalf("Create session failed: %v", err)
@@ -48,7 +46,6 @@ func TestSessionLifecycle(t *testing.T) {
         t.Error("Token is empty")
     }
 
-    // 2. Get session
     retrieved, err := repo.Get(ctx, sess.Token)
     if err != nil {
         t.Fatalf("Get session failed: %v", err)
@@ -58,13 +55,11 @@ func TestSessionLifecycle(t *testing.T) {
         t.Errorf("Expected UserID %s, got %s", userID, retrieved.UserID)
     }
 
-    // 3. Delete session
     err = repo.Delete(ctx, sess.Token)
     if err != nil {
         t.Fatalf("Delete session failed: %v", err)
     }
 
-    // 4. Verify session deleted
     _, err = repo.Get(ctx, sess.Token)
     if err != ErrSessionExpired {
         t.Errorf("Expected ErrSessionExpired, got %v", err)
